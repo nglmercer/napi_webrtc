@@ -9,6 +9,7 @@ use webrtc::ice_transport::ice_candidate::RTCIceCandidateInit as RTCIceCandidate
 use webrtc::data_channel::RTCDataChannel;
 use crate::data_channel::DataChannel;
 use crate::ice::RTCIceCandidateInit;
+use crate::api::RUNTIME;
 
 #[napi]
 pub struct PeerConnection {
@@ -24,34 +25,48 @@ impl PeerConnection {
     }
 
     #[napi]
-    pub fn on_ice_candidate(&self, #[napi(ts_arg_type = "(candidate: string | null) => void")] callback: ThreadsafeFunction<Option<String>>) -> Result<()> {
+    pub fn on_ice_candidate(&self, callback: ThreadsafeFunction<Option<String>>) -> Result<()> {
+        let _guard = RUNTIME.enter();
         let callback = Arc::new(callback);
         self.inner.on_ice_candidate(Box::new(move |c| {
             let callback = callback.clone();
             Box::pin(async move {
-                let json = c.map(|candidate| {
-                    let init = RTCIceCandidateInit {
-                        candidate: candidate.to_string(),
-                        sdp_mid: None,
-                        sdp_mline_index: None,
-                        username_fragment: None,
+                if let Some(candidate) = c {
+                    let json_result = {
+                        let _guard = RUNTIME.enter();
+                        candidate.to_json()
                     };
-                    serde_json::to_string(&init).unwrap_or_default()
-                });
-                let _ = callback.call(Ok(json), ThreadsafeFunctionCallMode::Blocking);
+                    match json_result {
+                        Ok(internal_init) => {
+                            let init = RTCIceCandidateInit {
+                                candidate: internal_init.candidate,
+                                sdp_mid: internal_init.sdp_mid,
+                                sdp_mline_index: internal_init.sdp_mline_index,
+                                username_fragment: internal_init.username_fragment,
+                            };
+                            if let Ok(json) = serde_json::to_string(&init) {
+                                let _ = callback.call(Ok(Some(json)), ThreadsafeFunctionCallMode::NonBlocking);
+                            }
+                        }
+                        Err(_) => {}
+                    }
+                } else {
+                    let _ = callback.call(Ok(None), ThreadsafeFunctionCallMode::NonBlocking);
+                }
             })
         }));
         Ok(())
     }
 
     #[napi]
-    pub fn on_data_channel(&self, #[napi(ts_arg_type = "(channel: DataChannel) => void")] callback: ThreadsafeFunction<DataChannel>) -> Result<()> {
+    pub fn on_data_channel(&self, callback: ThreadsafeFunction<DataChannel>) -> Result<()> {
+        let _guard = RUNTIME.enter();
         let callback = Arc::new(callback);
         self.inner.on_data_channel(Box::new(move |dc: Arc<RTCDataChannel>| {
             let callback = callback.clone();
             Box::pin(async move {
                 let channel = DataChannel::new(dc);
-                let _ = callback.call(Ok(channel), ThreadsafeFunctionCallMode::Blocking);
+                let _ = callback.call(Ok(channel), ThreadsafeFunctionCallMode::NonBlocking);
             })
         }));
         Ok(())
@@ -59,11 +74,17 @@ impl PeerConnection {
 
     #[napi]
     pub async fn create_offer(&self) -> Result<String> {
-        let offer = self.inner.create_offer(None).await
+        let offer = {
+            let _guard = RUNTIME.enter();
+            self.inner.create_offer(None)
+        }.await
             .map_err(|e| Error::from_reason(format!("Failed to create offer: {}", e)))?;
         
         // Sets the LocalDescription, and starts our UDP listeners
-        self.inner.set_local_description(offer.clone()).await
+        {
+            let _guard = RUNTIME.enter();
+            self.inner.set_local_description(offer.clone())
+        }.await
             .map_err(|e| Error::from_reason(format!("Failed to set local description: {}", e)))?;
 
         Ok(offer.sdp)
@@ -71,11 +92,17 @@ impl PeerConnection {
 
     #[napi]
     pub async fn create_answer(&self) -> Result<String> {
-        let answer = self.inner.create_answer(None).await
+        let answer = {
+            let _guard = RUNTIME.enter();
+            self.inner.create_answer(None)
+        }.await
             .map_err(|e| Error::from_reason(format!("Failed to create answer: {}", e)))?;
         
         // Sets the LocalDescription, and starts our UDP listeners
-        self.inner.set_local_description(answer.clone()).await
+        {
+            let _guard = RUNTIME.enter();
+            self.inner.set_local_description(answer.clone())
+        }.await
             .map_err(|e| Error::from_reason(format!("Failed to set local description: {}", e)))?;
 
         Ok(answer.sdp)
@@ -92,7 +119,10 @@ impl PeerConnection {
             "rollback" => RTCSdpType::Rollback,
             _ => return Err(Error::from_reason(format!("Invalid SDP type: {}", sdp_type))),
         };
-        self.inner.set_remote_description(desc).await
+        {
+            let _guard = RUNTIME.enter();
+            self.inner.set_remote_description(desc)
+        }.await
             .map_err(|e| Error::from_reason(format!("Failed to set remote description: {}", e)))?;
         Ok(())
     }
@@ -105,21 +135,30 @@ impl PeerConnection {
             sdp_mline_index: candidate.sdp_mline_index,
             username_fragment: candidate.username_fragment,
         };
-        self.inner.add_ice_candidate(internal).await
+        {
+            let _guard = RUNTIME.enter();
+            self.inner.add_ice_candidate(internal)
+        }.await
             .map_err(|e| Error::from_reason(format!("Failed to add ice candidate: {}", e)))?;
         Ok(())
     }
 
     #[napi]
     pub async fn create_data_channel(&self, label: String) -> Result<DataChannel> {
-        let dc = self.inner.create_data_channel(&label, None).await
+        let dc = {
+            let _guard = RUNTIME.enter();
+            self.inner.create_data_channel(&label, None)
+        }.await
             .map_err(|e| Error::from_reason(format!("Failed to create data channel: {}", e)))?;
         Ok(DataChannel::new(dc))
     }
 
     #[napi]
     pub async fn close(&self) -> Result<()> {
-        self.inner.close().await
+        {
+            let _guard = RUNTIME.enter();
+            self.inner.close()
+        }.await
             .map_err(|e| Error::from_reason(format!("Failed to close peer connection: {}", e)))?;
         Ok(())
     }
