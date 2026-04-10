@@ -1,5 +1,5 @@
 {
-  "name": "napi-template-bun",
+  "name": "napi-webrtc-bun",
   "version": "1.0.0",
   "description": "Template for NAPI (Node-API) native addons with Bun runtime",
   "keywords": [
@@ -59,12 +59,8 @@
     "bun": ">=1.0.0"
   },
   "napi": {
-    "binaryName": "template",
+    "binaryName": "napi_webrtc",
     "targets": [
-      "x86_64-pc-windows-msvc",
-      "i686-pc-windows-msvc",
-      "x86_64-apple-darwin",
-      "aarch64-apple-darwin",
       "x86_64-unknown-linux-gnu",
       "aarch64-unknown-linux-gnu"
     ]

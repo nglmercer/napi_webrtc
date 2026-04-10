@@ -9,10 +9,6 @@ name = "napi_template"
 
 [package.metadata.napi]
 targets = [
-  "x86_64-pc-windows-msvc",
-  "i686-pc-windows-msvc",
-  "x86_64-apple-darwin",
-  "aarch64-apple-darwin",
   "x86_64-unknown-linux-gnu",
   "aarch64-unknown-linux-gnu"
 ]
@@ -22,6 +18,9 @@ napi = { version = "3.8.2", features = ["napi9", "async"] }
 napi-derive = "3.5.1"
 chrono = "0.4"
 tokio = { version = "1", features = ["full"] }
+webrtc = "0.17.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 [build-dependencies]
 napi-build = "2.3.1"
