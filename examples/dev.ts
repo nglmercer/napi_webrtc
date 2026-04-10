@@ -1,13 +1,6 @@
 import { WebRTCAPI } from "../index";
 
 async function main() {
-  // close by timeut 2 minutes
-  setTimeout(() => {
-    // close process after 2 minutes
-    console.log("Closing process after 2 minutes...");
-    process.exit(0);
-  }, 120000);
-
   console.log("Starting WebRTC NAPI example...");
   
   const api = new WebRTCAPI();
@@ -20,15 +13,17 @@ async function main() {
 
   // Set up ICE candidate handlers
   pc1.onIceCandidate((candidate) => {
+    console.log("PC1 onIceCandidate callback triggered", candidate ? "with candidate" : "with null");
     if (candidate) {
-      console.log("PC1 found ICE candidate");
+      console.log("PC1 found ICE candidate:", candidate.candidate);
       pc2.addIceCandidate(candidate).catch(e => console.error("PC2 addIceCandidate error:", e));
     }
   });
 
   pc2.onIceCandidate((candidate) => {
+    console.log("PC2 onIceCandidate callback triggered", candidate ? "with candidate" : "with null");
     if (candidate) {
-      console.log("PC2 found ICE candidate");
+      console.log("PC2 found ICE candidate:", candidate.candidate);
       pc1.addIceCandidate(candidate).catch(e => console.error("PC1 addIceCandidate error:", e));
     }
   });
@@ -38,6 +33,7 @@ async function main() {
   console.log("DataChannel 'chat' created on PC1");
 
   dc1.onOpen((err) => {
+    console.log("PC1 DataChannel onOpen triggered");
     if (err) {
       console.error("PC1 DataChannel open error:", err);
       return;
@@ -54,6 +50,7 @@ async function main() {
   pc2.onDataChannel((dc2) => {
     console.log("PC2 received DataChannel:", dc2.label());
     dc2.onOpen((err) => {
+      console.log("PC2 DataChannel onOpen triggered");
       if (err) {
         console.error("PC2 DataChannel open error:", err);
         return;

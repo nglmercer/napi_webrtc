@@ -24,18 +24,21 @@ impl PeerConnection {
     }
 
     #[napi]
-    pub fn on_ice_candidate(&self, #[napi(ts_arg_type = "(candidate: RTCIceCandidateInit | null) => void")] callback: ThreadsafeFunction<Option<RTCIceCandidateInit>>) -> Result<()> {
+    pub fn on_ice_candidate(&self, #[napi(ts_arg_type = "(candidate: string | null) => void")] callback: ThreadsafeFunction<Option<String>>) -> Result<()> {
         let callback = Arc::new(callback);
         self.inner.on_ice_candidate(Box::new(move |c| {
             let callback = callback.clone();
             Box::pin(async move {
-                let init = c.map(|candidate| RTCIceCandidateInit {
-                    candidate: candidate.to_string(),
-                    sdp_mid: None,
-                    sdp_mline_index: None,
-                    username_fragment: None,
+                let json = c.map(|candidate| {
+                    let init = RTCIceCandidateInit {
+                        candidate: candidate.to_string(),
+                        sdp_mid: None,
+                        sdp_mline_index: None,
+                        username_fragment: None,
+                    };
+                    serde_json::to_string(&init).unwrap_or_default()
                 });
-                let _ = callback.call(Ok(init), ThreadsafeFunctionCallMode::NonBlocking);
+                let _ = callback.call(Ok(json), ThreadsafeFunctionCallMode::Blocking);
             })
         }));
         Ok(())
@@ -48,7 +51,7 @@ impl PeerConnection {
             let callback = callback.clone();
             Box::pin(async move {
                 let channel = DataChannel::new(dc);
-                let _ = callback.call(Ok(channel), ThreadsafeFunctionCallMode::NonBlocking);
+                let _ = callback.call(Ok(channel), ThreadsafeFunctionCallMode::Blocking);
             })
         }));
         Ok(())

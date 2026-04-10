@@ -22,7 +22,7 @@ impl DataChannel {
         self.inner.on_open(Box::new(move || {
             let callback = callback.clone();
             Box::pin(async move {
-                let _ = callback.call((), ThreadsafeFunctionCallMode::NonBlocking);
+                let _ = callback.call(Ok(()), ThreadsafeFunctionCallMode::NonBlocking);
             })
         }));
         Ok(())
@@ -35,7 +35,7 @@ impl DataChannel {
             let callback = callback.clone();
             Box::pin(async move {
                 let text = String::from_utf8_lossy(&msg.data).to_string();
-                let _ = callback.call(text, ThreadsafeFunctionCallMode::NonBlocking);
+                let _ = callback.call(Ok(text), ThreadsafeFunctionCallMode::NonBlocking);
             })
         }));
         Ok(())
