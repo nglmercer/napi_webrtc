@@ -7,7 +7,7 @@ use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
 use webrtc::peer_connection::sdp::sdp_type::RTCSdpType;
 use webrtc::ice_transport::ice_candidate::RTCIceCandidateInit as RTCIceCandidateInitInternal;
 use webrtc::data_channel::RTCDataChannel;
-use crate::data_channel::DataChannel;
+use crate::data_channel::{DataChannel, RTCDataChannelInit};
 use crate::ice::RTCIceCandidateInit;
 use crate::api::RUNTIME;
 
@@ -66,7 +66,7 @@ impl PeerConnection {
             let callback = callback.clone();
             Box::pin(async move {
                 let channel = DataChannel::new(dc);
-                let _ = callback.call(Ok(channel), ThreadsafeFunctionCallMode::NonBlocking);
+                let _ = callback.call(Ok(channel), ThreadsafeFunctionCallMode::Blocking);
             })
         }));
         Ok(())
@@ -144,10 +144,11 @@ impl PeerConnection {
     }
 
     #[napi]
-    pub async fn create_data_channel(&self, label: String) -> Result<DataChannel> {
+    pub async fn create_data_channel(&self, label: String, init: Option<RTCDataChannelInit>) -> Result<DataChannel> {
+        let internal_init = init.map(|i| i.into());
         let dc = {
             let _guard = RUNTIME.enter();
-            self.inner.create_data_channel(&label, None)
+            self.inner.create_data_channel(&label, internal_init)
         }.await
             .map_err(|e| Error::from_reason(format!("Failed to create data channel: {}", e)))?;
         Ok(DataChannel::new(dc))

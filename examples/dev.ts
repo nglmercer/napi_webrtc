@@ -54,25 +54,42 @@ async function main() {
       }
       console.log("DataChannel on PC1 opened!");
       dc1.send("Hello from PC1!").catch(console.error);
+      
+      // Example: Sending a binary "frame" (e.g., audio or image chunk)
+      const fakeFrame = Buffer.from([0x01, 0x02, 0x03, 0x04, 0x05]);
+      console.log("PC1 sending binary frame...");
+      dc1.sendBuffer(fakeFrame).catch(console.error);
     });
 
     // Wait for messages from both sides
     console.log("Waiting for connection and messages...");
     
+    let pc1TextReceived = false;
+    let pc1BinaryReceived = false;
     const pc1Received = new Promise<void>(resolve => {
-      dc1.onMessage((err: any, data: string) => {
+      dc1.onMessage((err: any, data: string | Buffer) => {
         if (err) {
           console.error("PC1 onMessage error:", err);
           return;
         }
-        console.log("PC1 received message:", data);
-        resolve();
+        if (typeof data === "string") {
+          console.log("PC1 received text message:", data);
+          pc1TextReceived = true;
+        } else {
+          console.log("PC1 received binary frame, length:", data.length, "data:", data);
+          pc1BinaryReceived = true;
+        }
+        if (pc1TextReceived && pc1BinaryReceived) resolve();
       });
     });
 
     let dc2Resolve: () => void;
+    let pc2TextReceived = false;
+    let pc2BinaryReceived = false;
     const pc2Received = new Promise<void>(resolve => {
-      dc2Resolve = resolve;
+      dc2Resolve = () => {
+        if (pc2TextReceived && pc2BinaryReceived) resolve();
+      };
     });
 
     // Set up DataChannel handler on PC2
@@ -89,13 +106,24 @@ async function main() {
         }
         console.log("DataChannel on PC2 opened!");
         dc2.send("Hello from PC2!").catch(console.error);
+        
+        // PC2 also sends a binary frame
+        const pc2Frame = Buffer.from("PC2 binary frame data");
+        console.log("PC2 sending binary frame...");
+        dc2.sendBuffer(pc2Frame).catch(console.error);
       });
-      dc2.onMessage((err: any, data: string) => {
+      dc2.onMessage((err: any, data: string | Buffer) => {
         if (err) {
           console.error("PC2 onMessage error:", err);
           return;
         }
-        console.log("PC2 received message:", data);
+        if (typeof data === "string") {
+          console.log("PC2 received text message:", data);
+          pc2TextReceived = true;
+        } else {
+          console.log("PC2 received binary frame, length:", data.length, "data:", data.toString());
+          pc2BinaryReceived = true;
+        }
         dc2Resolve();
       });
     });
